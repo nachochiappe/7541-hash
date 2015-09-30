@@ -52,23 +52,23 @@ unsigned int djbhash(const char* clave, size_t tam) {
 	return hash % tam;
 }
 
-// Devuelve TRUE si la clave existe en la lista hash->tabla[pos_vect], FALSE si no
-bool clave_existe(hash_t *hash, const char *clave, size_t *pos_vect) {
-	if (!hash->tabla[pos_vect]) return false;
+// Devuelve el nodo si la clave existe en la lista hash->tabla[pos_vect], NULL si no
+nodo_hash_t* clave_existe(hash_t *hash, const char *clave, size_t *pos_vect) {
+	if (!hash->tabla[pos_vect]) return NULL;
 	for (int i = 0; i < lista_largo(hash->tabla[pos_vect]); i++) {
 		nodo_hash_t* nodo = hash->tabla[pos_vect][i];
 		// Si la clave del nodo es igual a la pasada por parámetro termino el ciclo
-		if (strcmp(nodo->clave, clave) == 0) return true;
+		if (strcmp(nodo->clave, clave) == 0) return nodo;
 	}
-	return false;
+	return NULL;
 }
 
 // Reemplaza el dato de una clave del hash por otro dato pasado
 // como parámetro.
 bool hash_reemplazar(hash_t *hash, const char *clave, void *dato) {
 	size_t pos_vect = djbhash(clave, hash->tamanio);
-	
-	if (!clave_existe(hash, clave, pos_vect)) return false;
+	nodo_hash_t* nodo = clave_existe(hash, clave, pos_vect);
+	if (!nodo) return false;
 	if (hash->destruir_dato) hash->destruir_dato(nodo->valor);
 	nodo->valor = dato;
 	return true;
@@ -144,8 +144,9 @@ void *hash_obtener(const hash_t *hash, const char *clave) {
 
 bool hash_pertenece(const hash_t *hash, const char *clave) {
 	size_t pos_vect = djbhash(clave, hash->tamanio);
-	
-	return clave_existe(hash, clave, pos_vect);
+	nodo_hash_t* nodo = clave_existe(hash, clave, pos_vect);
+	if (!nodo) return false;
+	return true;
 }
 
 size_t hash_cantidad(const hash_t *hash) {
