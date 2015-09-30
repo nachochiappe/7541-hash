@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include "hash.h"
+#include "lista.h"
 
 // Struct de los nodos del hash
 struct nodo_hash {
@@ -8,10 +9,10 @@ struct nodo_hash {
 };
 
 struct hash {
+	lista_t** tabla;
 	size_t cantidad;
 	size_t tamanio;
 	hash_destruir_dato_t destruir_dato;
-	lista_t** tabla;
 };
 
 struct hash_iter{
@@ -20,10 +21,12 @@ struct hash_iter{
 	lista_iter_t *iter_lista;
 };
 
-/* FUNCIONES AUXILIARES */
+/***********************************
+ *        FUNCIONES AUXILIARES     *
+ ***********************************/
 
 // Crea un nuevo nodo del hash
-nodo_hash_t* _nodo_hash_crear(char *clave, void *dato) {
+nodo_hash_t* nodo_hash_crear(char *clave, void *dato) {
 	nodo_hash_t* nodo_hash = NULL;
 	if (!(nodo_hash = malloc(sizeof(nodo_hash_t)))) return NULL;
 	nodo_hash->clave = clave;
@@ -37,37 +40,97 @@ float factor_de_carga(hash_t *hash) {
 	return ((float) (hash->cantidad / hash->tamanio));
 }
 
-// Función hash 1
-size_t DJBHash(char* clave, size_t tam) {
+// Función hash DJB
+unsigned int djbhash(const char* clave, size_t tam) {
 	unsigned int hash = 5381;
 	unsigned int i = 0;
 
 	for(i = 0; i < tam; clave++, i++) {
-		hash = ((hash << 5) + hash) + (*clave);
+		hash = ((hash * 32) + hash) + (*clave);
 	}
 
-	return hash;
+	return hash % tam;
 }
 
-// Función hash 2
-size_t fhash(const char* clave, size_t tam) {
-	unsigned int hash = 0;
-	unsigned int i = 0;
-	while (clave[i] != '\0') {
-		hash += ((int) clave[i] + 13);
-		i++;
-	}
-	return hash%tam;
-}
-
-/* FUNCIONES DEL HASH */
-
-hash_t *hash_crear(hash_destruir_dato_t destruir_dato) {
+// Reemplaza el dato de una clave del hash por otro dato pasado
+// como parámetro.
+bool hash_reemplazar(hash_t *hash, const char *clave, void *dato) {
+	unsigned int pos_vect = djbhash(clave, hash->tamanio);
+	bool clave_existe = false;
 	
+	if (!hash->tabla[pos_vect]) return false;
+	for (int i = 0; i < lista_largo(hash->tabla[pos_vect]); i++) {
+		nodo_hash_t* nodo = hash->tabla[pos_vect][i];
+		// Si la clave del nodo es igual a la pasada por parámetro termino el ciclo
+		if (strcmp(nodo->clave, clave) == 0) {
+			clave_existe = true;
+			break;
+		}
+	}
+	if (!clave_existe) return false;
+	if (hash->destruir_dato) hash->destruir_dato(nodo->valor);
+	nodo->valor = dato;
+	return true;
+}
+
+/***********************************
+ *        FUNCIONES DEL HASH       *
+ ***********************************/
+ 
+hash_t *hash_crear(hash_destruir_dato_t destruir_dato) {
+	hash_t* hash = malloc(sizeof(hash_t));
+	if (!hash) return NULL;
+	
+	// Genero una tabla inicializada con ceros
+	lista_t** tabla = calloc(TAM_INICIAL, sizeof(lista_t*));
+	if (!tabla) {
+		free(hash);
+		return NULL;
+	}
+	
+	// Genero una lista por cada posición de la tabla
+	for (unsigned int i = 0; i < TAM_INICIAL; i++){
+		tabla[i] = lista_crear();        
+	}
+	hash->tabla = tabla;
+	hash->destruir_dato = destruir_dato;
+	hash->cantidad = 0;
+	hash->tamanio = TAM_INICIAL;
+	return hash;
 }
 
 bool hash_guardar(hash_t *hash, const char *clave, void *dato) {
 	
+	// Redimensiono el hash en caso de que el factor de carga sea >= 70%
+	if (factor_de_carga(hash) >= (float) 0.7) {
+		if (!hash_redimensionar(hash)) return false;
+	}
+	
+	// Obtengo la posición del vector donde guardar el nodo
+	size_t pos_vect = djbhash(clave, hash->tamanio);
+	
+	// Creo una copia de la clave en caso de que la modifiquen desde afuera
+	char *clave_copia = strcpy(malloc(strlen(clave) + 1), clave);
+	
+	// Verifico si la clave ya pertenece al hash
+	if (hash_pertenece(hash, clave)) {
+		if (hash_reemplazar(hash, clave_copia, dato)) {
+			free(clave_copia);
+			return true;
+		}
+		free(clave_copia);
+		return false;
+    }
+	
+	// Genero un nuevo nodo del hash
+	nodo_hash_t* nodo_hash = nodo_hash_crear(clave, dato);
+	if (!nodo_hash) return false;
+	
+	// Inserto el nodo en la lista correspondiente
+	lista_insertar_primero(hash->tabla[pos_vect], nodo_hash);
+	
+	hash->cantidad++;
+	return true;
 }
 
 void *hash_borrar(hash_t *hash, const char *clave) {
@@ -83,12 +146,16 @@ bool hash_pertenece(const hash_t *hash, const char *clave) {
 }
 
 size_t hash_cantidad(const hash_t *hash) {
-	
+	return hash->cantidad;
 }
 
 void hash_destruir(hash_t *hash) {
 	
 }
+
+/***********************************
+ * FUNCIONES DEL ITERADOR DEL HASH *
+ ***********************************/
 
 hash_iter_t *hash_iter_crear(const hash_t *hash) {
 	
