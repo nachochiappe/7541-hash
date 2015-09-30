@@ -1,12 +1,13 @@
 #include <stdlib.h>
+#include <string.h>
 #include "hash.h"
 #include "lista.h"
 
 // Struct de los nodos del hash
-struct nodo_hash {
+typedef struct nodo_hash {
 	char *clave;
 	void *valor;
-};
+} nodo_hash_t;
 
 struct hash {
 	lista_t** tabla;
@@ -26,7 +27,7 @@ struct hash_iter{
  ***********************************/
 
 // Crea un nuevo nodo del hash
-nodo_hash_t* nodo_hash_crear(char *clave, void *dato) {
+nodo_hash_t* nodo_hash_crear(const char *clave, void *dato) {
 	nodo_hash_t* nodo_hash = NULL;
 	if (!(nodo_hash = malloc(sizeof(nodo_hash_t)))) return NULL;
 	nodo_hash->clave = clave;
@@ -53,10 +54,10 @@ unsigned int djbhash(const char* clave, size_t tam) {
 }
 
 // Devuelve el nodo si la clave existe en la lista hash->tabla[pos_vect], NULL si no
-nodo_hash_t* clave_existe(hash_t *hash, const char *clave, size_t *pos_vect) {
-	if (!hash->tabla[pos_vect]) return NULL;
-	for (int i = 0; i < lista_largo(hash->tabla[pos_vect]); i++) {
-		nodo_hash_t* nodo = hash->tabla[pos_vect][i];
+nodo_hash_t* clave_existe(const hash_t *hash, const char *clave, size_t *pos_vect) {
+	if (!hash->tabla[*pos_vect]) return NULL;
+	for (int i = 0; i < lista_largo(hash->tabla[*pos_vect]); i++) {
+		nodo_hash_t* nodo = hash->tabla[*pos_vect][i];
 		// Si la clave del nodo es igual a la pasada por parámetro termino el ciclo
 		if (strcmp(nodo->clave, clave) == 0) return nodo;
 	}
@@ -67,11 +68,15 @@ nodo_hash_t* clave_existe(hash_t *hash, const char *clave, size_t *pos_vect) {
 // como parámetro.
 bool hash_reemplazar(hash_t *hash, const char *clave, void *dato) {
 	size_t pos_vect = djbhash(clave, hash->tamanio);
-	nodo_hash_t* nodo = clave_existe(hash, clave, pos_vect);
+	nodo_hash_t* nodo = clave_existe(hash, clave, &pos_vect);
 	if (!nodo) return false;
 	if (hash->destruir_dato) hash->destruir_dato(nodo->valor);
 	nodo->valor = dato;
 	return true;
+}
+
+hash_t* hash_redimensionar(hash_t* hash) {
+	
 }
 
 /***********************************
@@ -138,7 +143,7 @@ void *hash_obtener(const hash_t *hash, const char *clave) {
 
 bool hash_pertenece(const hash_t *hash, const char *clave) {
 	size_t pos_vect = djbhash(clave, hash->tamanio);
-	nodo_hash_t* nodo = clave_existe(hash, clave, pos_vect);
+	nodo_hash_t* nodo = clave_existe(hash, clave, &pos_vect);
 	if (!nodo) return false;
 	return true;
 }
