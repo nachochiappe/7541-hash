@@ -52,22 +52,23 @@ unsigned int djbhash(const char* clave, size_t tam) {
 	return hash % tam;
 }
 
-// Reemplaza el dato de una clave del hash por otro dato pasado
-// como parámetro.
-bool hash_reemplazar(hash_t *hash, const char *clave, void *dato) {
-	unsigned int pos_vect = djbhash(clave, hash->tamanio);
-	bool clave_existe = false;
-	
+// Devuelve TRUE si la clave existe en la lista hash->tabla[pos_vect], FALSE si no
+bool clave_existe(hash_t *hash, const char *clave, size_t *pos_vect) {
 	if (!hash->tabla[pos_vect]) return false;
 	for (int i = 0; i < lista_largo(hash->tabla[pos_vect]); i++) {
 		nodo_hash_t* nodo = hash->tabla[pos_vect][i];
 		// Si la clave del nodo es igual a la pasada por parámetro termino el ciclo
-		if (strcmp(nodo->clave, clave) == 0) {
-			clave_existe = true;
-			break;
-		}
+		if (strcmp(nodo->clave, clave) == 0) return true;
 	}
-	if (!clave_existe) return false;
+	return false;
+}
+
+// Reemplaza el dato de una clave del hash por otro dato pasado
+// como parámetro.
+bool hash_reemplazar(hash_t *hash, const char *clave, void *dato) {
+	size_t pos_vect = djbhash(clave, hash->tamanio);
+	
+	if (!clave_existe(hash, clave, pos_vect)) return false;
 	if (hash->destruir_dato) hash->destruir_dato(nodo->valor);
 	nodo->valor = dato;
 	return true;
@@ -90,7 +91,7 @@ hash_t *hash_crear(hash_destruir_dato_t destruir_dato) {
 	
 	// Genero una lista por cada posición de la tabla
 	for (unsigned int i = 0; i < TAM_INICIAL; i++){
-		tabla[i] = lista_crear();        
+		tabla[i] = lista_crear();
 	}
 	hash->tabla = tabla;
 	hash->destruir_dato = destruir_dato;
@@ -120,7 +121,7 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato) {
 		}
 		free(clave_copia);
 		return false;
-    }
+	}
 	
 	// Genero un nuevo nodo del hash
 	nodo_hash_t* nodo_hash = nodo_hash_crear(clave, dato);
@@ -142,7 +143,9 @@ void *hash_obtener(const hash_t *hash, const char *clave) {
 }
 
 bool hash_pertenece(const hash_t *hash, const char *clave) {
+	size_t pos_vect = djbhash(clave, hash->tamanio);
 	
+	return clave_existe(hash, clave, pos_vect);
 }
 
 size_t hash_cantidad(const hash_t *hash) {
