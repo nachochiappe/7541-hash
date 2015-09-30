@@ -113,15 +113,8 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato) {
 	// Creo una copia de la clave en caso de que la modifiquen desde afuera
 	char *clave_copia = strcpy(malloc(strlen(clave) + 1), clave);
 	
-	// Verifico si la clave ya pertenece al hash
-	if (hash_pertenece(hash, clave)) {
-		if (hash_reemplazar(hash, clave_copia, dato)) {
-			free(clave_copia);
-			return true;
-		}
-		free(clave_copia);
-		return false;
-	}
+	// Reemplazo en caso de que la clave pertenezca al hash
+	if (hash_reemplazar(hash, clave_copia, dato)) return true;
 	
 	// Genero un nuevo nodo del hash
 	nodo_hash_t* nodo_hash = nodo_hash_crear(clave, dato);
@@ -130,6 +123,7 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato) {
 	// Inserto el nodo en la lista correspondiente
 	lista_insertar_primero(hash->tabla[pos_vect], nodo_hash);
 	
+	free(clave_copia);
 	hash->cantidad++;
 	return true;
 }
