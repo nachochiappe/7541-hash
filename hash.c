@@ -3,6 +3,8 @@
 #include "hash.h"
 #include "lista.h"
 
+#define TAM_INICIAL 5
+
 // Struct de los nodos del hash
 typedef struct nodo_hash {
 	char *clave;
@@ -27,7 +29,7 @@ struct hash_iter{
  ***********************************/
 
 // Crea un nuevo nodo del hash
-nodo_hash_t* nodo_hash_crear(const char *clave, void *dato) {
+nodo_hash_t* nodo_hash_crear(char *clave, void *dato) {
 	nodo_hash_t* nodo_hash = NULL;
 	if (!(nodo_hash = malloc(sizeof(nodo_hash_t)))) return NULL;
 	nodo_hash->clave = clave;
@@ -56,10 +58,12 @@ unsigned int djbhash(const char* clave, size_t tam) {
 // Devuelve el nodo si la clave existe en la lista hash->tabla[pos_vect], NULL si no
 nodo_hash_t* clave_existe(const hash_t *hash, const char *clave, size_t *pos_vect) {
 	if (!hash->tabla[*pos_vect]) return NULL;
-	for (int i = 0; i < lista_largo(hash->tabla[*pos_vect]); i++) {
-		nodo_hash_t* nodo = hash->tabla[*pos_vect][i];
+	lista_iter_t* iter = lista_iter_crear(hash->tabla[*pos_vect]);
+	while (!lista_iter_al_final(iter)) {
+		nodo_hash_t* nodo = lista_iter_ver_actual(iter);
 		// Si la clave del nodo es igual a la pasada por parámetro termino el ciclo
 		if (strcmp(nodo->clave, clave) == 0) return nodo;
+		lista_iter_avanzar(iter);
 	}
 	return NULL;
 }
@@ -122,7 +126,7 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato) {
 	if (hash_reemplazar(hash, clave_copia, dato)) return true;
 	
 	// Genero un nuevo nodo del hash
-	nodo_hash_t* nodo_hash = nodo_hash_crear(clave, dato);
+	nodo_hash_t* nodo_hash = nodo_hash_crear(clave_copia, dato);
 	if (!nodo_hash) return false;
 	
 	// Inserto el nodo en la lista correspondiente
