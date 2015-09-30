@@ -49,14 +49,14 @@ unsigned int djbhash(const char* clave, size_t tam) {
 	unsigned int i = 0;
 
 	for(i = 0; i < tam; clave++, i++) {
-		hash = ((hash * 32) + hash) + (*clave);
+		hash = ((hash * 32) + hash) + ((unsigned char) *clave);
 	}
 
 	return hash % tam;
 }
 
 // Devuelve el nodo si la clave existe en la lista hash->tabla[pos_vect], NULL si no
-nodo_hash_t* clave_existe(const hash_t *hash, const char *clave, size_t *pos_vect) {
+nodo_hash_t* nodo_en_lista(const hash_t *hash, const char *clave, size_t *pos_vect) {
 	if (!hash->tabla[*pos_vect]) return NULL;
 	lista_iter_t* iter = lista_iter_crear(hash->tabla[*pos_vect]);
 	while (!lista_iter_al_final(iter)) {
@@ -65,6 +65,7 @@ nodo_hash_t* clave_existe(const hash_t *hash, const char *clave, size_t *pos_vec
 		if (strcmp(nodo->clave, clave) == 0) return nodo;
 		lista_iter_avanzar(iter);
 	}
+	lista_iter_destruir(iter);
 	return NULL;
 }
 
@@ -72,7 +73,7 @@ nodo_hash_t* clave_existe(const hash_t *hash, const char *clave, size_t *pos_vec
 // como parámetro.
 bool hash_reemplazar(hash_t *hash, const char *clave, void *dato) {
 	size_t pos_vect = djbhash(clave, hash->tamanio);
-	nodo_hash_t* nodo = clave_existe(hash, clave, &pos_vect);
+	nodo_hash_t* nodo = nodo_en_lista(hash, clave, &pos_vect);
 	if (!nodo) return false;
 	if (hash->destruir_dato) hash->destruir_dato(nodo->valor);
 	nodo->valor = dato;
@@ -138,16 +139,43 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato) {
 }
 
 void *hash_borrar(hash_t *hash, const char *clave) {
-	
+	// CHEQUEAR PARA REUTILIZAR
+	size_t pos_vect = djbhash(clave, hash->tamanio);
+	void* dato = NULL;
+	if (!hash_pertenece(hash, clave)) return NULL;
+	lista_iter_t* iter = lista_iter_crear(hash->tabla[pos_vect]);
+	while (!lista_iter_al_final(iter)) {
+		if (strcmp(lista_iter_ver_actual(iter), clave) == 0) {
+			nodo_hash_t* nodo = lista_borrar(hash->tabla[pos_vect], iter);
+			dato = nodo->valor;
+		}
+		lista_iter_avanzar(iter);
+	}
+	lista_iter_destruir(iter);
+	hash->cantidad--;
+	return dato;
 }
 
 void *hash_obtener(const hash_t *hash, const char *clave) {
-	
+	// CHEQUEAR PARA REUTILIZAR
+	size_t pos_vect = djbhash(clave, hash->tamanio);
+	void* dato = NULL;
+	if (!hash_pertenece(hash, clave)) return NULL;
+	lista_iter_t* iter = lista_iter_crear(hash->tabla[pos_vect]);
+	while (!lista_iter_al_final(iter)) {
+		if (strcmp(lista_iter_ver_actual(iter), clave) == 0) {
+			nodo_hash_t* nodo = lista_iter_ver_actual(iter);
+			dato = nodo->valor;
+		}
+		lista_iter_avanzar(iter);
+	}
+	lista_iter_destruir(iter);
+	return dato;
 }
 
 bool hash_pertenece(const hash_t *hash, const char *clave) {
 	size_t pos_vect = djbhash(clave, hash->tamanio);
-	nodo_hash_t* nodo = clave_existe(hash, clave, &pos_vect);
+	nodo_hash_t* nodo = nodo_en_lista(hash, clave, &pos_vect);
 	if (!nodo) return false;
 	return true;
 }
