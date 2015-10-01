@@ -81,7 +81,32 @@ bool hash_reemplazar(hash_t *hash, const char *clave, void *dato) {
 }
 
 hash_t* hash_redimensionar(hash_t* hash) {
+	// Elijo un nuevo tamaño igual a 5 veces el tamaño anterior
+	size_t nuevo_tamanio = hash->tamanio * 5;
+	lista_t** nueva_tabla = calloc(nuevo_tamanio, sizeof(lista_t*));
+	if (!nueva_tabla) return false;
 	
+	// Creo una nueva lista por cada posición de la nueva tabla
+	for (unsigned int i = 0; i < nuevo_tamanio; i++) {
+		nueva_tabla[i] = lista_crear();
+	}
+	
+	// Saco los nodos del hash anterior, los vuelvo a hashear y los inserto
+	// en el nuevo hash
+	for (unsigned int i = 0; i < hash->tamanio; i++){
+		while (!lista_esta_vacia(hash->tabla[i])){
+			nodo_hash_t* nodo = lista_borrar_primero(hash->tabla[i]);
+			size_t pos_vect = djbhash(nodo->clave, nuevo_tamanio);
+			lista_insertar_ultimo(nueva_tabla[pos_vect], nodo);
+		}
+		// Destruyo las listas del hash anterior
+		lista_destruir(hash->tabla[i], NULL);
+	}
+	
+	free(hash->tabla);
+	hash->tabla = nueva_tabla;
+	hash->tamanio = nuevo_tamanio;
+	return true;
 }
 
 /***********************************
@@ -185,7 +210,24 @@ size_t hash_cantidad(const hash_t *hash) {
 }
 
 void hash_destruir(hash_t *hash) {
-	
+	size_t largo = hash->tamanio;
+
+	for (size_t i = 0; i < largo; i++) {
+		if (hash->tabla[i]) {
+			lista_iter_t *iter = lista_iter_crear(hash->tabla[i]);
+			while (!lista_iter_al_final(iter)) {
+				nodo_hash_t* nodo = lista_iter_ver_actual(iter);
+				free(nodo->clave);
+				if (hash->destruir_dato) hash->destruir_dato(nodo->valor);
+				free(nodo);
+				lista_iter_avanzar(iter);
+			}
+			lista_iter_destruir(iter);
+			lista_destruir(hash->tabla[i], NULL);
+		}
+	}
+	free(hash->tabla);
+	free(hash);
 }
 
 /***********************************
