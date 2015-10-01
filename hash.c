@@ -44,16 +44,14 @@ float factor_de_carga(hash_t *hash) {
 	return ((float) (hash->cantidad / hash->tamanio));
 }
 
-// Función hash DJB
-unsigned int djbhash(const char* clave, size_t tam) {
-	unsigned int hash = 5381;
-	unsigned int i = 0;
-
-	for(i = 0; i < tam; clave++, i++) {
-		hash = ((hash * 32) + hash) + ((unsigned char) *clave);
+unsigned long int fhash(const char* clave, size_t tam) {
+	unsigned long int hash=0;
+	long int i = 0;
+	while (clave[i] != '\0') {
+		hash += ((unsigned long int) clave[i]+13);
+		i++;
 	}
-	
-	return hash % tam;
+	return hash%tam;
 }
 
 // Devuelve el nodo si la clave existe en la lista hash->tabla[pos_vect], NULL si no
@@ -73,7 +71,7 @@ nodo_hash_t* nodo_en_lista(const hash_t *hash, const char *clave, size_t *pos_ve
 // Reemplaza el dato de una clave del hash por otro dato pasado
 // como parámetro.
 bool hash_reemplazar(hash_t *hash, const char *clave, void *dato) {
-	size_t pos_vect = djbhash(clave, hash->tamanio);
+	size_t pos_vect = fhash(clave, hash->tamanio);
 	nodo_hash_t* nodo = nodo_en_lista(hash, clave, &pos_vect);
 	if (!nodo) return false;
 	if (hash->destruir_dato) hash->destruir_dato(nodo->valor);
@@ -96,7 +94,7 @@ bool hash_redimensionar(hash_t* hash) {
 	for (unsigned int i = 0; i < hash->tamanio; i++){
 		while (!lista_esta_vacia(hash->tabla[i])){
 			nodo_hash_t* nodo = lista_borrar_primero(hash->tabla[i]);
-			size_t pos_vect = djbhash(nodo->clave, nuevo_tamanio);
+			size_t pos_vect = fhash(nodo->clave, nuevo_tamanio);
 			lista_insertar_ultimo(nueva_tabla[pos_vect], nodo);
 		}
 		// Destruyo las listas del hash anterior
@@ -141,8 +139,7 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato) {
 		if (!hash_redimensionar(hash)) return false;
 	}
 	// Obtengo la posición del vector donde guardar el nodo
-	size_t pos_vect = djbhash(clave, hash->tamanio);
-	
+	size_t pos_vect = fhash(clave, hash->tamanio);
 	// Creo una copia de la clave en caso de que la modifiquen desde afuera
 	char *clave_copia = strcpy(malloc(strlen(clave) + 1), clave);
 	// Reemplazo en caso de que la clave pertenezca al hash
@@ -152,18 +149,18 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato) {
 	}
 	
 	// Genero un nuevo nodo del hash
-	nodo_hash_t* nodo_hash = nodo_hash_crear(clave_copia, dato);
-	if (!nodo_hash) return false;
+	nodo_hash_t* nodo = nodo_hash_crear(clave_copia, dato);
+	if (!nodo) return false;
 	
 	// Inserto el nodo en la lista correspondiente
-	lista_insertar_primero(hash->tabla[pos_vect], nodo_hash);
+	lista_insertar_primero(hash->tabla[pos_vect], nodo);
 	hash->cantidad++;
 	return true;
 }
 
 void *hash_borrar(hash_t *hash, const char *clave) {
 	// CHEQUEAR PARA REUTILIZAR
-	size_t pos_vect = djbhash(clave, hash->tamanio);
+	size_t pos_vect = fhash(clave, hash->tamanio);
 	void* dato = NULL;
 	if (!hash_pertenece(hash, clave)) return NULL;
 	lista_iter_t* iter = lista_iter_crear(hash->tabla[pos_vect]);
@@ -182,7 +179,7 @@ void *hash_borrar(hash_t *hash, const char *clave) {
 
 void *hash_obtener(const hash_t *hash, const char *clave) {
 	// CHEQUEAR PARA REUTILIZAR
-	size_t pos_vect = djbhash(clave, hash->tamanio);
+	size_t pos_vect = fhash(clave, hash->tamanio);
 	void* dato = NULL;
 	if (!hash_pertenece(hash, clave)) return NULL;
 	lista_iter_t* iter = lista_iter_crear(hash->tabla[pos_vect]);
@@ -199,7 +196,7 @@ void *hash_obtener(const hash_t *hash, const char *clave) {
 }
 
 bool hash_pertenece(const hash_t *hash, const char *clave) {
-	size_t pos_vect = djbhash(clave, hash->tamanio);
+	size_t pos_vect = fhash(clave, hash->tamanio);
 	nodo_hash_t* nodo = nodo_en_lista(hash, clave, &pos_vect);
 	if (!nodo) return false;
 	return true;
