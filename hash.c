@@ -2,6 +2,7 @@
 #include <string.h>
 #include "hash.h"
 #include "lista.h"
+#include <stdio.h>
 
 #define TAM_INICIAL 5
 
@@ -51,7 +52,7 @@ unsigned int djbhash(const char* clave, size_t tam) {
 	for(i = 0; i < tam; clave++, i++) {
 		hash = ((hash * 32) + hash) + ((unsigned char) *clave);
 	}
-
+	
 	return hash % tam;
 }
 
@@ -80,7 +81,7 @@ bool hash_reemplazar(hash_t *hash, const char *clave, void *dato) {
 	return true;
 }
 
-hash_t* hash_redimensionar(hash_t* hash) {
+bool hash_redimensionar(hash_t* hash) {
 	// Elijo un nuevo tamaño igual a 5 veces el tamaño anterior
 	size_t nuevo_tamanio = hash->tamanio * 5;
 	lista_t** nueva_tabla = calloc(nuevo_tamanio, sizeof(lista_t*));
@@ -90,7 +91,6 @@ hash_t* hash_redimensionar(hash_t* hash) {
 	for (unsigned int i = 0; i < nuevo_tamanio; i++) {
 		nueva_tabla[i] = lista_crear();
 	}
-	
 	// Saco los nodos del hash anterior, los vuelvo a hashear y los inserto
 	// en el nuevo hash
 	for (unsigned int i = 0; i < hash->tamanio; i++){
@@ -136,20 +136,20 @@ hash_t *hash_crear(hash_destruir_dato_t destruir_dato) {
 }
 
 bool hash_guardar(hash_t *hash, const char *clave, void *dato) {
-	
 	// Redimensiono el hash en caso de que el factor de carga sea >= 70%
 	if (factor_de_carga(hash) >= (float) 0.7) {
 		if (!hash_redimensionar(hash)) return false;
 	}
-	
 	// Obtengo la posición del vector donde guardar el nodo
 	size_t pos_vect = djbhash(clave, hash->tamanio);
 	
 	// Creo una copia de la clave en caso de que la modifiquen desde afuera
 	char *clave_copia = strcpy(malloc(strlen(clave) + 1), clave);
-	
 	// Reemplazo en caso de que la clave pertenezca al hash
-	if (hash_reemplazar(hash, clave_copia, dato)) return true;
+	if (hash_reemplazar(hash, clave_copia, dato)) {
+		free(clave_copia);
+		return true;
+	}
 	
 	// Genero un nuevo nodo del hash
 	nodo_hash_t* nodo_hash = nodo_hash_crear(clave_copia, dato);
@@ -157,8 +157,6 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato) {
 	
 	// Inserto el nodo en la lista correspondiente
 	lista_insertar_primero(hash->tabla[pos_vect], nodo_hash);
-	
-	free(clave_copia);
 	hash->cantidad++;
 	return true;
 }
@@ -170,7 +168,8 @@ void *hash_borrar(hash_t *hash, const char *clave) {
 	if (!hash_pertenece(hash, clave)) return NULL;
 	lista_iter_t* iter = lista_iter_crear(hash->tabla[pos_vect]);
 	while (!lista_iter_al_final(iter)) {
-		if (strcmp(lista_iter_ver_actual(iter), clave) == 0) {
+		nodo_hash_t* nodo_actual = lista_iter_ver_actual(iter);
+		if (strcmp(nodo_actual->clave, clave) == 0) {
 			nodo_hash_t* nodo = lista_borrar(hash->tabla[pos_vect], iter);
 			dato = nodo->valor;
 		}
@@ -188,7 +187,8 @@ void *hash_obtener(const hash_t *hash, const char *clave) {
 	if (!hash_pertenece(hash, clave)) return NULL;
 	lista_iter_t* iter = lista_iter_crear(hash->tabla[pos_vect]);
 	while (!lista_iter_al_final(iter)) {
-		if (strcmp(lista_iter_ver_actual(iter), clave) == 0) {
+		nodo_hash_t* nodo_actual = lista_iter_ver_actual(iter);
+		if (strcmp(nodo_actual->clave, clave) == 0) {
 			nodo_hash_t* nodo = lista_iter_ver_actual(iter);
 			dato = nodo->valor;
 		}
@@ -233,7 +233,7 @@ void hash_destruir(hash_t *hash) {
 /***********************************
  * FUNCIONES DEL ITERADOR DEL HASH *
  ***********************************/
-
+/*
 hash_iter_t *hash_iter_crear(const hash_t *hash) {
 	
 }
@@ -252,4 +252,4 @@ bool hash_iter_al_final(const hash_iter_t *iter) {
 
 void hash_iter_destruir(hash_iter_t* iter) {
 	
-}
+}*/
