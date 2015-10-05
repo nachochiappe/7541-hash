@@ -95,7 +95,7 @@ bool hash_redimensionar(hash_t* hash) {
 		while (!lista_esta_vacia(hash->tabla[i])){
 			nodo_hash_t* nodo = lista_borrar_primero(hash->tabla[i]);
 			size_t pos_vect = fhash(nodo->clave, nuevo_tamanio);
-			lista_insertar_ultimo(nueva_tabla[pos_vect], nodo);
+			lista_insertar_primero(nueva_tabla[pos_vect], nodo);
 		}
 		// Destruyo las listas del hash anterior
 		lista_destruir(hash->tabla[i], NULL);
