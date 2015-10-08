@@ -31,11 +31,10 @@ struct hash_iter{
 
 // Crea un nuevo nodo del hash
 nodo_hash_t* nodo_hash_crear(char *clave, void *dato) {
-	nodo_hash_t* nodo_hash = NULL;
-	if (!(nodo_hash = malloc(sizeof(nodo_hash_t)))) return NULL;
+    nodo_hash_t* nodo_hash = malloc(sizeof(nodo_hash_t));
+	if (!nodo_hash) return NULL;
 	nodo_hash->clave = clave;
 	nodo_hash->valor = dato;
-
 	return nodo_hash;
 }
 
@@ -44,11 +43,12 @@ float factor_de_carga(hash_t *hash) {
 	return ((float) (hash->cantidad / hash->tamanio));
 }
 
+//
 unsigned long int fhash(const char* clave, size_t tam) {
-	unsigned long int hash=0;
+	unsigned long int hash = 0;
 	long int i = 0;
 	while (clave[i] != '\0') {
-		hash += ((unsigned long int) clave[i]+13);
+		hash += ((unsigned long int) clave[i] + 13);
 		i++;
 	}
 	return hash%tam;
@@ -56,20 +56,25 @@ unsigned long int fhash(const char* clave, size_t tam) {
 
 // Devuelve el nodo si la clave existe en la lista hash->tabla[pos_vect], NULL si no
 nodo_hash_t* nodo_en_lista(const hash_t *hash, const char *clave, size_t *pos_vect) {
-	if (!hash->tabla[*pos_vect]) return NULL;
 	lista_iter_t* iter = lista_iter_crear(hash->tabla[*pos_vect]);
+    nodo_hash_t* nodo;
+    bool pertenece = false;
 	while (!lista_iter_al_final(iter)) {
-		nodo_hash_t* nodo = lista_iter_ver_actual(iter);
+        nodo = lista_iter_ver_actual(iter);
 		// Si la clave del nodo es igual a la pasada por parámetro termino el ciclo
-		if (strcmp(nodo->clave, clave) == 0) return nodo;
+		if (strcmp(nodo->clave, clave) == 0){ 
+            pertenece = true;
+			break;
+		}
 		lista_iter_avanzar(iter);
 	}
 	lista_iter_destruir(iter);
+	if (pertenece) return nodo;
 	return NULL;
 }
 
 // Reemplaza el dato de una clave del hash por otro dato pasado
-// como parámetro.
+// como parámetro. En caso de no encontrar la clave, devuelve false.
 bool hash_reemplazar(hash_t *hash, const char *clave, void *dato) {
 	size_t pos_vect = fhash(clave, hash->tamanio);
 	nodo_hash_t* nodo = nodo_en_lista(hash, clave, &pos_vect);
@@ -135,7 +140,7 @@ hash_t *hash_crear(hash_destruir_dato_t destruir_dato) {
 
 bool hash_guardar(hash_t *hash, const char *clave, void *dato) {
 	// Redimensiono el hash en caso de que el factor de carga sea >= 70%
-	if (factor_de_carga(hash) >= (float) 0.7) {
+	if (factor_de_carga(hash) >= 0.7) {
 		if (!hash_redimensionar(hash)) return false;
 	}
 	// Obtengo la posición del vector donde guardar el nodo
@@ -147,7 +152,6 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato) {
 		free(clave_copia);
 		return true;
 	}
-	
 	// Genero un nuevo nodo del hash
 	nodo_hash_t* nodo = nodo_hash_crear(clave_copia, dato);
 	if (!nodo) return false;
@@ -159,69 +163,56 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato) {
 }
 
 void *hash_borrar(hash_t *hash, const char *clave) {
-	// CHEQUEAR PARA REUTILIZAR
 	size_t pos_vect = fhash(clave, hash->tamanio);
 	void* dato = NULL;
-	if (!hash_pertenece(hash, clave)) return NULL;
 	lista_iter_t* iter = lista_iter_crear(hash->tabla[pos_vect]);
 	while (!lista_iter_al_final(iter)) {
 		nodo_hash_t* nodo_actual = lista_iter_ver_actual(iter);
 		if (strcmp(nodo_actual->clave, clave) == 0) {
-			nodo_hash_t* nodo = lista_borrar(hash->tabla[pos_vect], iter);
-			dato = nodo->valor;
+			lista_borrar(hash->tabla[pos_vect], iter);
+			dato = nodo_actual->valor;
+			free(nodo_actual->clave);
+			free(nodo_actual);
+			hash->cantidad--;
+			break;
 		}
 		lista_iter_avanzar(iter);
 	}
 	lista_iter_destruir(iter);
-	hash->cantidad--;
 	return dato;
 }
 
 void *hash_obtener(const hash_t *hash, const char *clave) {
-	// CHEQUEAR PARA REUTILIZAR
 	size_t pos_vect = fhash(clave, hash->tamanio);
 	void* dato = NULL;
-	if (!hash_pertenece(hash, clave)) return NULL;
-	lista_iter_t* iter = lista_iter_crear(hash->tabla[pos_vect]);
-	while (!lista_iter_al_final(iter)) {
-		nodo_hash_t* nodo_actual = lista_iter_ver_actual(iter);
-		if (strcmp(nodo_actual->clave, clave) == 0) {
-			nodo_hash_t* nodo = lista_iter_ver_actual(iter);
-			dato = nodo->valor;
-		}
-		lista_iter_avanzar(iter);
-	}
-	lista_iter_destruir(iter);
+	nodo_hash_t* nodo = nodo_en_lista(hash, clave, &pos_vect);
+	if (!nodo) return NULL;
+	dato = nodo->valor;
 	return dato;
 }
 
 bool hash_pertenece(const hash_t *hash, const char *clave) {
 	size_t pos_vect = fhash(clave, hash->tamanio);
 	nodo_hash_t* nodo = nodo_en_lista(hash, clave, &pos_vect);
-	if (!nodo) return false;
-	return true;
+	return nodo != NULL;
 }
 
 size_t hash_cantidad(const hash_t *hash) {
 	return hash->cantidad;
 }
 
+
 void hash_destruir(hash_t *hash) {
 	size_t largo = hash->tamanio;
-
-	for (size_t i = 0; i < largo; i++) {
-		if (hash->tabla[i]) {
-			lista_iter_t *iter = lista_iter_crear(hash->tabla[i]);
-			while (!lista_iter_al_final(iter)) {
-				nodo_hash_t* nodo = lista_iter_ver_actual(iter);
-				free(nodo->clave);
-				if (hash->destruir_dato) hash->destruir_dato(nodo->valor);
-				free(nodo);
-				lista_iter_avanzar(iter);
-			}
-			lista_iter_destruir(iter);
-			lista_destruir(hash->tabla[i], NULL);
+	for (int i = 0; i < largo; i++) {
+		while (!lista_esta_vacia(hash->tabla[i])){
+			nodo_hash_t* nodo = lista_borrar_primero(hash->tabla[i]);
+			if (hash->destruir_dato != NULL)
+				hash->destruir_dato(nodo->valor);
+			free(nodo->clave);
+			free(nodo);
 		}
+		lista_destruir(hash->tabla[i], NULL);
 	}
 	free(hash->tabla);
 	free(hash);
@@ -230,23 +221,23 @@ void hash_destruir(hash_t *hash) {
 /***********************************
  * FUNCIONES DEL ITERADOR DEL HASH *
  ***********************************/
-/*
-hash_iter_t *hash_iter_crear(const hash_t *hash) {
-	
-}
 
-bool hash_iter_avanzar(hash_iter_t *iter) {
+hash_iter_t *hash_iter_crear(const hash_t *hash);
 	
-}
 
-const char *hash_iter_ver_actual(const hash_iter_t *iter) {
-	
-}
 
-bool hash_iter_al_final(const hash_iter_t *iter) {
+bool hash_iter_avanzar(hash_iter_t *iter);
 	
-}
 
-void hash_iter_destruir(hash_iter_t* iter) {
+
+const char *hash_iter_ver_actual(const hash_iter_t *iter);
 	
-}*/
+
+
+bool hash_iter_al_final(const hash_iter_t *iter);
+	
+
+
+void hash_iter_destruir(hash_iter_t* iter);
+	
+
