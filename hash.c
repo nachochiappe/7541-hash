@@ -64,12 +64,13 @@ nodo_hash_t* nodo_en_lista(const hash_t *hash, const char *clave, size_t *pos_ve
 		// Si la clave del nodo es igual a la pasada por parámetro termino el ciclo
 		if (strcmp(nodo->clave, clave) == 0){ 
             pertenece = true;
-			break;
-		}
+            break; // -----> Aca perdia memoria, no destruia el iter
+        }
 		lista_iter_avanzar(iter);
 	}
 	lista_iter_destruir(iter);
-	if (pertenece) return nodo;
+    if (pertenece) return nodo; // Aca faltaba devolver NULL en caso de que no estuviera,
+                                // por eso fallaba la prueba del volumen.
 	return NULL;
 }
 
@@ -112,6 +113,9 @@ bool hash_redimensionar(hash_t* hash) {
 	return true;
 }
 
+
+
+
 /***********************************
  *        FUNCIONES DEL HASH       *
  ***********************************/
@@ -149,8 +153,8 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato) {
 	char *clave_copia = strcpy(malloc(strlen(clave) + 1), clave);
 	// Reemplazo en caso de que la clave pertenezca al hash
 	if (hash_reemplazar(hash, clave_copia, dato)) {
-		free(clave_copia);
-		return true;
+	    free(clave_copia);
+        return true;
 	}
 	// Genero un nuevo nodo del hash
 	nodo_hash_t* nodo = nodo_hash_crear(clave_copia, dato);
@@ -163,6 +167,7 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato) {
 }
 
 void *hash_borrar(hash_t *hash, const char *clave) {
+	// CHEQUEAR PARA REUTILIZAR
 	size_t pos_vect = fhash(clave, hash->tamanio);
 	void* dato = NULL;
 	lista_iter_t* iter = lista_iter_crear(hash->tabla[pos_vect]);
@@ -171,10 +176,10 @@ void *hash_borrar(hash_t *hash, const char *clave) {
 		if (strcmp(nodo_actual->clave, clave) == 0) {
 			lista_borrar(hash->tabla[pos_vect], iter);
 			dato = nodo_actual->valor;
-			free(nodo_actual->clave);
-			free(nodo_actual);
-			hash->cantidad--;
-			break;
+            free(nodo_actual->clave); // -----> Aca perdia memoria, no liberaba la clave
+            free(nodo_actual);        // -----> Igual pero con el nodo
+        	hash->cantidad--;
+            break;
 		}
 		lista_iter_avanzar(iter);
 	}
@@ -186,15 +191,15 @@ void *hash_obtener(const hash_t *hash, const char *clave) {
 	size_t pos_vect = fhash(clave, hash->tamanio);
 	void* dato = NULL;
 	nodo_hash_t* nodo = nodo_en_lista(hash, clave, &pos_vect);
-	if (!nodo) return NULL;
-	dato = nodo->valor;
+    if (!nodo) return NULL;
+    dato = nodo->valor;
 	return dato;
 }
 
 bool hash_pertenece(const hash_t *hash, const char *clave) {
 	size_t pos_vect = fhash(clave, hash->tamanio);
 	nodo_hash_t* nodo = nodo_en_lista(hash, clave, &pos_vect);
-	return nodo != NULL;
+    return nodo != NULL;
 }
 
 size_t hash_cantidad(const hash_t *hash) {
@@ -222,22 +227,63 @@ void hash_destruir(hash_t *hash) {
  * FUNCIONES DEL ITERADOR DEL HASH *
  ***********************************/
 
-hash_iter_t *hash_iter_crear(const hash_t *hash);
-	
+/* Devuelve true o false segun si quedan o no listas para iterar. En caso
+ * de si quedar, modifica el valor de la posicion pasada por parametro.*/
+bool posicion_en_tabla(const hash_t* hash, size_t* pos_en_tabla){
+	size_t i = *pos_en_tabla;
+	while (i != hash->tamanio){
+		if (!lista_esta_vacia(hash->tabla[i])){
+			*pos_en_tabla = i;
+			return true;
+		}
+		i++;
+	}
+	return false;
+}
 
+hash_iter_t *hash_iter_crear(const hash_t *hash){
+	hash_iter_t* hash_iter = malloc(sizeof(hash_iter_t));
+	if (!hash_iter || !hash) return NULL;
+	hash_iter->hash = hash;
+	size_t pos_tabla = 0;
+	if (!posicion_en_tabla(hash, &pos_tabla))
+		hash_iter->iter_lista = NULL;
+	else 
+		hash_iter->iter_lista = lista_iter_crear(hash->tabla[pos_tabla]);
+	hash_iter->pos_vect = pos_tabla;
+	return hash_iter;
+}
 
-bool hash_iter_avanzar(hash_iter_t *iter);
-	
+bool hash_iter_avanzar(hash_iter_t *iter){
+	if (!iter || !iter->iter_lista) return false; // Si el iterador de la lista o el mismo iterador son nulos, no avanza.
+	if (!hash_iter_al_final(iter)){
+		lista_iter_avanzar(iter->iter_lista);
+		if (!lista_iter_al_final(iter->iter_lista)) return true; // Si avanzo y no esta al final de la lista, puede seguir avanzando.
+		if (posicion_en_tabla(iter->hash, &iter->pos_vect)){
+			lista_iter_destruir(iter->iter_lista);
+			iter->iter_lista = lista_iter_crear(iter->hash->tabla[iter->pos_vect]);
+			iter->pos_vect++;
+			return true;
+		}
+	}
+	return false; // No quedan listas por iterar, estaria al final de la tabla de hash.
+}
 
+const char *hash_iter_ver_actual(const hash_iter_t *iter){
+	if (hash_iter_al_final(iter)) return NULL;
+	nodo_hash_t* actual = lista_iter_ver_actual(iter->iter_lista);
+	return actual->clave;
+}
 
-const char *hash_iter_ver_actual(const hash_iter_t *iter);
-	
+bool hash_iter_al_final(const hash_iter_t *iter){
+	if (!iter) return true;
+	size_t aux_pos_vect = iter->pos_vect;
+	return !posicion_en_tabla(iter->hash, &aux_pos_vect);;
+}
 
-
-bool hash_iter_al_final(const hash_iter_t *iter);
-	
-
-
-void hash_iter_destruir(hash_iter_t* iter);
-	
-
+void hash_iter_destruir(hash_iter_t* iter){
+	if (!iter) return;
+	if (iter->iter_lista != NULL)
+		lista_iter_destruir(iter->iter_lista);
+	free(iter);
+}
