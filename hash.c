@@ -43,12 +43,13 @@ float factor_de_carga(hash_t *hash) {
 	return ((float) (hash->cantidad / hash->tamanio));
 }
 
-// Función hash
+// Función de hashing
 unsigned long int fhash(const char* clave, size_t tam) {
 	unsigned long int hash = 0;
-	long int i = 0;
-	while (clave[i] != '\0') {
-		hash += ((unsigned long int) clave[i] + 13);
+	unsigned long int i = 0;
+		
+	while (clave[i] != '\0') { // Hash de tipo "Rotating/XOR" (intercambia posiciones entre bits y verifica los que se repiten con el tam.)
+		hash = (hash << 2) ^ (hash >> 14) ^ (unsigned long int) clave[i];
 		i++;
 	}
 	return hash%tam;
@@ -85,8 +86,8 @@ bool hash_reemplazar(hash_t *hash, const char *clave, void *dato) {
 }
 
 bool hash_redimensionar(hash_t* hash) {
-	// Elijo un nuevo tamaño igual a 4 veces el tamaño anterior
-	size_t nuevo_tamanio = hash->tamanio * 4;
+	// Elijo un nuevo tamaño igual a 15 veces el tamaño anterior
+	size_t nuevo_tamanio = hash->tamanio * 10;
 	lista_t** nueva_tabla = calloc(nuevo_tamanio, sizeof(lista_t*));
 	if (!nueva_tabla) return false;
 	
